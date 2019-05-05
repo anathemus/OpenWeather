@@ -1,31 +1,75 @@
-﻿@{
-    ViewBag.Title = "Home Page";
+﻿@using OpenWeather.Models
+@using OpenWeather.Controllers
+@using System.Linq
+@using System.Diagnostics
+@model List<CurrentWeather>
+@{
+    ViewBag.Title = "Open Weather App";
+    HomeController controller = new HomeController();
 }
 
-<div class="jumbotron">
-    <h1>ASP.NET</h1>
-    <p class="lead">ASP.NET is a free web framework for building great Web sites and Web applications using HTML, CSS and JavaScript.</p>
-    <p><a href="https://asp.net" class="btn btn-primary btn-lg">Learn more &raquo;</a></p>
-</div>
-
 <div class="row">
-    <div class="col-md-4">
-        <h2>Getting started</h2>
-        <p>
-            ASP.NET MVC gives you a powerful, patterns-based way to build dynamic websites that
-            enables a clean separation of concerns and gives you full control over markup
-            for enjoyable, agile development.
-        </p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301865">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Get more libraries</h2>
-        <p>NuGet is a free Visual Studio extension that makes it easy to add, remove, and update libraries and tools in Visual Studio projects.</p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301866">Learn more &raquo;</a></p>
-    </div>
-    <div class="col-md-4">
-        <h2>Web Hosting</h2>
-        <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
-        <p><a class="btn btn-default" href="https://go.microsoft.com/fwlink/?LinkId=301867">Learn more &raquo;</a></p>
-    </div>
+    @for (int k = 0; k < 10; k += 5)
+    {
+        <div class="col-md-6">
+            @for (int i = k; i < k + 5; i++)
+            {
+                if (Model.ElementAt(i) != null)
+                {
+                    string result;
+                    if (controller.CityInfo.TryGetValue(Model.ElementAt(i).city.name,
+                        out result))
+                    { }
+                    else
+                    {
+                        result = "Error!";
+                    }
+                    var cityTxt = Model.ElementAt(i).city.name + "\t" + result;
+
+                    <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
+                    <h4>@cityTxt</h4><br />
+                    <br />
+                    <h5>Date<span style="padding:0px 100px 0px 100px"></span>Avg Temp(F)</h5>
+                    <hr style="border-bottom: dashed 1px;" />
+
+                    // for loop to loop through 5 days
+                    for (int j = 0; j < 5; j++)
+                    {
+                        DateTimeOffset today = DateTimeOffset.Now.AddDays(j);
+                        IEnumerable<OpenWeather.Models.List> date = new List<OpenWeather.Models.List>();
+                        date = from list in Model.ElementAt(i).list
+                               where DateTimeOffset.Parse(list.dt_txt).ToString("yyyy-MM-dd") == today.ToString("yyyy-MM-dd")
+                               select list;
+                        IEnumerable<float> precipitation = new List<float>();
+                        precipitation = from list in date
+                                        where list.rain != null
+                                        select list.rain._3h;
+                        string rain = "";
+                        if (precipitation.Count() > 0)
+                        {
+                            rain = "*";
+                        }
+                        float avgTemp = 0;
+                        foreach (var item in date)
+                        {
+                            avgTemp += item.main.temp;
+                        }
+
+                        avgTemp = avgTemp / date.Count();
+                        <h6>
+                            @DateTime.Parse(date.First().dt_txt).ToString("MM/dd/yyyy")
+                            @rain
+                            <span style="padding:0px 100px 0px 100px"></span>
+                            @avgTemp
+                        </h6>
+                    }
+                }
+                else
+                {
+                    @:<h2>No Results</h2>
+                    Debug.WriteLine(Model.Count);
+                }
+             }
+        </div>
+     }
 </div>
