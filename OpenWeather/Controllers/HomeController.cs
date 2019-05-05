@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 
 namespace OpenWeather.Controllers
 {
-    // must be named to match RouetConfig.cs
     public class HomeController : Controller
     {
         // First tried enum for City. Unable due to space in San Diego, 
@@ -61,20 +61,20 @@ namespace OpenWeather.Controllers
         [HttpGet]
         [AsyncTimeout(2500)]
         [HandleError(ExceptionType = typeof(TimeoutException), View = "TimedOut")]
-        public async Task<ActionResult> Index()
+        public ActionResult Index()
         {
-            List<OpenWeatherModel> weatherModels = await GetOpenWeatherModelData();
+            List<OpenWeatherModel> weatherModels = GetOpenWeatherModelData();
             return View(weatherModels);
         }
 
         // changed from List<CurrentWeather> to List<OpenWeatherModel> to simplify View, refactor code
-        private async Task<List<OpenWeatherModel>> GetOpenWeatherModelData()
+        private List<OpenWeatherModel> GetOpenWeatherModelData()
         {
             List<OpenWeatherModel> weatherModels = new List<OpenWeatherModel>();
             foreach (var cityId in CityIds)
             {
                 OpenWeatherModel model = new OpenWeatherModel();
-                CurrentWeather weather = await GetWeather(cityId);
+                CurrentWeather weather = GetWeather(cityId);
                 model.City = weather.city.name;
                 string result;
                 if (CityInfo.TryGetValue(model.City,
@@ -105,7 +105,7 @@ namespace OpenWeather.Controllers
                     precipitation = from list in date
                                     where list.rain != null
                                     select list.rain._3h;
-                    
+
                     // if else to determine * for rain
                     if (precipitation.Count() > 0)
                     {
@@ -131,23 +131,18 @@ namespace OpenWeather.Controllers
             return weatherModels;
         }
 
-        private async Task<CurrentWeather> GetWeather(string cityId)
+        //private async Task<CurrentWeather> GetWeather(string cityId)
+        private CurrentWeather GetWeather(string cityId)
         {
-            HttpClient client = new HttpClient();
-            string url = "http://api.openweathermap.org/data/2.5/forecast?id="
-             + cityId  + "&units=imperial&appid=16dc947d12f146c02bd96acad16e117b";
-            HttpResponseMessage response = await client.GetAsync(url);
-            if (response.IsSuccessStatusCode)
+            // HttpClient client = new HttpClient();
+            using (WebClient client = new WebClient())
             {
-                var result = await response.Content.ReadAsStringAsync();
+                string url = "http://api.openweathermap.org/data/2.5/forecast?id=" + cityId + "&units=imperial&appid=16dc947d12f146c02bd96acad16e117b";
+
+                var result = client.DownloadString(new Uri(url));
                 // specify the Type<T> that you're converting to
                 var json = JsonConvert.DeserializeObject<CurrentWeather>(result);
                 return json;
-            }
-            else
-            {
-                Debug.WriteLine(response.ToString());
-                return null;
             }
         }
     }

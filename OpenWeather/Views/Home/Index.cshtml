@@ -1,11 +1,9 @@
 ﻿@using OpenWeather.Models
-@using OpenWeather.Controllers
 @using System.Linq
 @using System.Diagnostics
 @model List<OpenWeatherModel>
 @{
     ViewBag.Title = "Open Weather App";
-    HomeController controller = new HomeController();
 }
 
 <div class="row">
@@ -47,7 +45,7 @@
                     @:<h2>No Results</h2>
                     Debug.WriteLine(Model.Count);
                 }
-             }
+            }
         </div>
-     }
+    }
 </div>
