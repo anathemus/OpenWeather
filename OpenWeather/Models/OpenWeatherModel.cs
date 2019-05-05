@@ -14,7 +14,7 @@ namespace OpenWeather.Models
         public List<bool> Precipitation { get; set; }
 
         // get the date returned
-        public List<DateTime> Date { get; set; }
+        public List<DateTimeOffset> Date { get; set; }
 
         // double was found to be best for temperatures in a googled example
         // over decimal which is best for monetary calculations

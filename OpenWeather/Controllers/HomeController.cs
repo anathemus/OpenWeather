@@ -4,21 +4,17 @@ using System.Collections.Generic;
 using OpenWeather.Models;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Net.Http.Headers;
 using Newtonsoft.Json;
 using System.Diagnostics;
-using System.Net;
+using System.Linq;
 
 namespace OpenWeather.Controllers
 {
     // must be named to match RouetConfig.cs
     public class HomeController : Controller
     {
-        // to be able to pass to web page
-        //public CurrentWeather WeatherForecast { get; set; }
-
         // First tried enum for City. Unable due to space in San Diego, 
-        // changed to KeyValuePairs of <string, string> to match city names with states and zipcode
+        // changed to Dictionary - KeyValuePairs of <string, string> to match city names with states and zipcode
         public Dictionary<string, string> CityInfo
         {
             get
@@ -39,22 +35,6 @@ namespace OpenWeather.Controllers
             }
             // no need for set, but could put one if list ever needed to be changed
         }
-
-        // State as enum, change to string with .ToString() same order as City
-        // to make matching city and state easier
-        //public enum State
-        //{
-        //    MA,
-        //    CA,
-        //    WY,
-        //    AK,
-        //    TX,
-        //    FL,
-        //    WA,
-        //    OH,
-        //    ME,
-        //    HI
-        //}
 
         // API only accepts city name and country code.
         // Copied exact CityIds to avoid incorrect city data.
@@ -83,57 +63,79 @@ namespace OpenWeather.Controllers
         [HandleError(ExceptionType = typeof(TimeoutException), View = "TimedOut")]
         public async Task<ActionResult> Index()
         {
-            List<CurrentWeather> Weather = await GetWeatherList();
-            return View(Weather);
+            List<OpenWeatherModel> weatherModels = await GetOpenWeatherModelData();
+            return View(weatherModels);
         }
 
-        private async Task<List<CurrentWeather>> GetWeatherList()
+        // changed from List<CurrentWeather> to List<OpenWeatherModel> to simplify View, refactor code
+        private async Task<List<OpenWeatherModel>> GetOpenWeatherModelData()
         {
-            List<CurrentWeather> weatherList = new List<CurrentWeather>();
+            List<OpenWeatherModel> weatherModels = new List<OpenWeatherModel>();
             foreach (var cityId in CityIds)
             {
-                weatherList.Add(await GetWeather(cityId));
+                OpenWeatherModel model = new OpenWeatherModel();
+                CurrentWeather weather = await GetWeather(cityId);
+                model.City = weather.city.name;
+                string result;
+                if (CityInfo.TryGetValue(model.City,
+                    out result))
+                {
+                    model.StateZip = result;
+                }
+                else
+                {
+                    model.StateZip = "Error!";
+                }
+                // instantiate lists before adding to them
+                model.Precipitation = new List<bool>();
+                model.Temperature = new List<double>();
+                model.Date = new List<DateTimeOffset>();
+
+                // loop through 5 days
+                for (int i = 0; i < 5; i++)
+                {
+                    DateTimeOffset today = DateTimeOffset.Now.AddDays(i);
+                    // get all weather stats for the day
+                    IEnumerable<OpenWeather.Models.List> date = new List<OpenWeather.Models.List>();
+                    date = from list in weather.list
+                           where DateTimeOffset.Parse(list.dt_txt).ToString("yyyy-MM-dd") == today.ToString("yyyy-MM-dd")
+                           select list;
+
+                    IEnumerable<float> precipitation = new List<float>();
+                    precipitation = from list in date
+                                    where list.rain != null
+                                    select list.rain._3h;
+                    
+                    // if else to determine * for rain
+                    if (precipitation.Count() > 0)
+                    {
+                        model.Precipitation.Add(true);
+                    }
+                    else
+                    {
+                        model.Precipitation.Add(false);
+                    }
+
+                    float avgTemp = 0;
+                    foreach (var item in date)
+                    {
+                        avgTemp += item.main.temp;
+                    }
+                    avgTemp = avgTemp / date.Count();
+                    model.Temperature.Add(avgTemp);
+
+                    model.Date.Add(DateTimeOffset.Parse(date.First().dt_txt));
+                }
+                weatherModels.Add(model);
             }
-            return weatherList;
+            return weatherModels;
         }
 
-        // using WebClient instead of HttpClient.
-        // HttpClient got ugly and hung. Conflicting threads it seems
-        // from comments in StackOverflow
-
-        //public async Task GetWeatherForecastAsync(string cityId)
-        //{
-        //    WeatherForecast = await GetWeather(cityId);
-        //}
-
-        //public CurrentWeather GetWeatherForecast(string cityId)
-        //{
-        //    await GetWeatherForecastAsync(cityId);
-        //    return WeatherForecast;
-        //    // BaseAddress means BASEADDRESS, just the web address
-        //    //client.BaseAddress = new Uri("http://api.openweathermap.org");
-        //    //client.DefaultRequestHeaders.Accept.Clear();
-        //    //client.DefaultRequestHeaders.Accept.Add(new 
-        //    //    MediaTypeWithQualityHeaderValue("application/json"));
-        //    //client.Timeout = TimeSpan.FromSeconds(60);
-
-        //    var result = "";
-        //    try
-        //    {
-        //        result = await GetWeatherAsync(cityId);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        Debug.WriteLine(e.Message);
-        //    }
-        //    return result;
-        //}
         private async Task<CurrentWeather> GetWeather(string cityId)
         {
             HttpClient client = new HttpClient();
-            string url = $"http://api.openweathermap.org/data/2.5/forecast?id={cityId}"
-                + "&units=imperial&appid=16dc947d12f146c02bd96acad16e117b";
-
+            string url = "http://api.openweathermap.org/data/2.5/forecast?id="
+             + cityId  + "&units=imperial&appid=16dc947d12f146c02bd96acad16e117b";
             HttpResponseMessage response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {

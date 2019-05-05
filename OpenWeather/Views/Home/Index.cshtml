@@ -2,7 +2,7 @@
 @using OpenWeather.Controllers
 @using System.Linq
 @using System.Diagnostics
-@model List<CurrentWeather>
+@model List<OpenWeatherModel>
 @{
     ViewBag.Title = "Open Weather App";
     HomeController controller = new HomeController();
@@ -16,15 +16,7 @@
             {
                 if (Model.ElementAt(i) != null)
                 {
-                    string result;
-                    if (controller.CityInfo.TryGetValue(Model.ElementAt(i).city.name,
-                        out result))
-                    { }
-                    else
-                    {
-                        result = "Error!";
-                    }
-                    var cityTxt = Model.ElementAt(i).city.name + "\t" + result;
+                    var cityTxt = Model.ElementAt(i).City + "\t" + Model.ElementAt(i).StateZip;
 
                     <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
                     <h4>@cityTxt</h4><br />
@@ -35,29 +27,15 @@
                     // for loop to loop through 5 days
                     for (int j = 0; j < 5; j++)
                     {
-                        DateTimeOffset today = DateTimeOffset.Now.AddDays(j);
-                        IEnumerable<OpenWeather.Models.List> date = new List<OpenWeather.Models.List>();
-                        date = from list in Model.ElementAt(i).list
-                               where DateTimeOffset.Parse(list.dt_txt).ToString("yyyy-MM-dd") == today.ToString("yyyy-MM-dd")
-                               select list;
-                        IEnumerable<float> precipitation = new List<float>();
-                        precipitation = from list in date
-                                        where list.rain != null
-                                        select list.rain._3h;
                         string rain = "";
-                        if (precipitation.Count() > 0)
+                        if (Model.ElementAt(i).Precipitation.ElementAt(j))
                         {
                             rain = "*";
                         }
-                        float avgTemp = 0;
-                        foreach (var item in date)
-                        {
-                            avgTemp += item.main.temp;
-                        }
-
-                        avgTemp = avgTemp / date.Count();
+                        string avgTemp = "";
+                        avgTemp = Model.ElementAt(i).Temperature.ElementAt(j).ToString("0.00");
                         <h6>
-                            @DateTime.Parse(date.First().dt_txt).ToString("MM/dd/yyyy")
+                            @Model.ElementAt(i).Date.ElementAt(j).ToString("MM/dd/yyyy")
                             @rain
                             <span style="padding:0px 100px 0px 100px"></span>
                             @avgTemp
